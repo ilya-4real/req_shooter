@@ -1,6 +1,6 @@
 use crate::utils;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ParsedUrl {
     pub host: String,
     pub resource: String,

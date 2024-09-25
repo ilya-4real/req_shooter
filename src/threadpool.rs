@@ -1,59 +1,69 @@
 use std::{
-    thread::{spawn, JoinHandle, Thread},
-    time::{self, Duration, Instant},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, Mutex,
+    },
+    thread::{spawn, JoinHandle},
 };
 
-use crate::{http_request::make_http_request, url_parser::ParsedUrl};
+use crate::jobs::job::Job;
 
 #[derive(Debug)]
 pub struct Worker {
     id: usize,
-    thread: JoinHandle<()>,
+    thread: Option<JoinHandle<()>>,
 }
 
 impl Worker {
-    pub fn new(id: usize) -> Worker {
-        let thread = spawn(|| {});
-        Worker { id, thread }
-    }
-}
-
-pub struct HTTPJob {
-    pub parsed_url: ParsedUrl,
-    pub job_duration_sec: usize,
-}
-
-pub trait Job {
-    fn execute(&self);
-}
-
-impl Job for HTTPJob {
-    fn execute(&self) {
-        let time_off_end = std::time::Instant::now()
-            .checked_add(Duration::from_secs(self.job_duration_sec as u64))
-            .unwrap();
-        let mut _total_requests: i64 = 0;
-        while Instant::now() <= time_off_end {
-            make_http_request(&self.parsed_url);
-            _total_requests += 1;
+    pub fn new(id: usize, receiver: Arc<Mutex<Receiver<Box<dyn Job + Sync + Send>>>>) -> Worker {
+        let thread: JoinHandle<()> = spawn(move || {
+            let local_job: Box<dyn Job + Send + Sync> = receiver.lock().unwrap().recv().unwrap();
+            drop(receiver);
+            local_job.execute();
+        });
+        Worker {
+            id,
+            thread: Some(thread),
         }
-        println!("requests made {}", _total_requests);
     }
 }
 
 #[derive(Debug)]
 pub struct ThreadPool {
     workers_pool: Vec<Worker>,
+    sender: Option<Sender<Box<dyn Job + Send + Sync>>>,
 }
 
 impl ThreadPool {
     pub fn new(num_threads: usize) -> ThreadPool {
         let mut workers = Vec::with_capacity(num_threads);
+        let (sender, receiver) = channel::<Box<dyn Job + Send + Sync>>();
+        let receiver = Arc::new(Mutex::new(receiver));
         for id in 0..num_threads {
-            workers.push(Worker::new(id));
+            println!("spawning worker: {}", id);
+            workers.push(Worker::new(id, Arc::clone(&receiver)));
         }
         ThreadPool {
             workers_pool: workers,
+            sender: Some(sender),
+        }
+    }
+
+    pub fn start(&self, j: Box<dyn Job + Send + Sync>) {
+        for _ in 0..self.workers_pool.len() {
+            let new_joba = j.clone_job();
+            self.sender.as_ref().unwrap().send(new_joba).unwrap();
+        }
+    }
+}
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        for worker in &mut self.workers_pool {
+            if let Some(thread) = worker.thread.take() {
+                thread.join().unwrap();
+            }
+            println!("shutting down worker: {}", worker.id);
         }
     }
 }

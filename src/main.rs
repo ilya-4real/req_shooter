@@ -1,27 +1,31 @@
 mod cli_args;
-pub mod http_request;
+mod jobs;
 mod threadpool;
 mod url_parser;
 pub mod utils;
+use std::time::Instant;
+
 use clap::Parser;
-use http_request::make_http_request;
-use std::time::{Duration, Instant};
-use threadpool::{HTTPJob, Job, ThreadPool};
+use jobs::http_job::HTTPJob;
+use threadpool::ThreadPool;
+
 use url_parser::ParsedUrl;
 
-fn main() {
-    let _th_pool: ThreadPool = ThreadPool::new(12);
-    let parsed_url = ParsedUrl::new("localhost:8000/some_res").expect("can not parse url");
-    make_http_request(&parsed_url);
-    let cur_time = Instant::now();
-    cur_time.checked_add(Duration::from_secs(5));
-
-    let job: HTTPJob = HTTPJob {
-        parsed_url,
+fn run_pool() {
+    let parsed_url = ParsedUrl::new("localhost:8000/").expect("can not parse url");
+    let job1: HTTPJob = HTTPJob {
+        parsed_url: parsed_url.clone(),
         job_duration_sec: 5,
+        conn_quantity: 200,
     };
+    let th_pool: ThreadPool = ThreadPool::new(4);
+    th_pool.start(Box::new(job1));
+}
 
-    job.execute();
+fn main() {
+    let start_time = Instant::now();
+    run_pool();
+    println!("time spent: {:?}", start_time.elapsed());
 
     let args = cli_args::CliArgs::parse();
     println!("{args:?}");
