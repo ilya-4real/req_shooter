@@ -9,13 +9,13 @@ use std::{
 use crate::{jobs::job::Job, statistics::stats::Statistics};
 
 pub struct Worker {
-    id: usize,
+    id: u8,
     thread: Option<JoinHandle<()>>,
 }
 
 impl Worker {
     pub fn new(
-        id: usize,
+        id: u8,
         receiver: Arc<Mutex<Receiver<Box<dyn Job + Sync + Send>>>>,
         stats_sender: Sender<Statistics>,
     ) -> Worker {
@@ -37,8 +37,8 @@ pub struct ThreadPool {
 }
 
 impl ThreadPool {
-    pub fn new(num_threads: usize) -> ThreadPool {
-        let mut workers = Vec::with_capacity(num_threads);
+    pub fn new(num_threads: u8) -> ThreadPool {
+        let mut workers = Vec::with_capacity(num_threads as usize);
         let (sender, receiver) = channel::<Box<dyn Job + Send + Sync>>();
         let receiver = Arc::new(Mutex::new(receiver));
         let (stats_tx, stats_rx) = channel::<Statistics>();
