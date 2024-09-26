@@ -1,5 +1,9 @@
+use std::sync::mpsc::Sender;
+
+use crate::statistics::stats::Statistics;
+
 pub trait Job: CloneJob {
-    fn execute(&self);
+    fn execute(&self, stats_sender: Sender<Statistics>);
 }
 
 pub trait CloneJob {

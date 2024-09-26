@@ -4,7 +4,7 @@ mod threadpool;
 mod url_parser;
 pub mod utils;
 use std::time::Instant;
-
+mod statistics;
 use clap::Parser;
 use jobs::http_job::HTTPJob;
 use threadpool::ThreadPool;

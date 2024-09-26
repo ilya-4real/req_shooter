@@ -6,20 +6,23 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use crate::jobs::job::Job;
+use crate::{jobs::job::Job, statistics::stats::Statistics};
 
-#[derive(Debug)]
 pub struct Worker {
     id: usize,
     thread: Option<JoinHandle<()>>,
 }
 
 impl Worker {
-    pub fn new(id: usize, receiver: Arc<Mutex<Receiver<Box<dyn Job + Sync + Send>>>>) -> Worker {
+    pub fn new(
+        id: usize,
+        receiver: Arc<Mutex<Receiver<Box<dyn Job + Sync + Send>>>>,
+        stats_sender: Sender<Statistics>,
+    ) -> Worker {
         let thread: JoinHandle<()> = spawn(move || {
             let local_job: Box<dyn Job + Send + Sync> = receiver.lock().unwrap().recv().unwrap();
             drop(receiver);
-            local_job.execute();
+            local_job.execute(stats_sender);
         });
         Worker {
             id,
@@ -27,11 +30,10 @@ impl Worker {
         }
     }
 }
-
-#[derive(Debug)]
 pub struct ThreadPool {
     workers_pool: Vec<Worker>,
     sender: Option<Sender<Box<dyn Job + Send + Sync>>>,
+    stats_recvr: Receiver<Statistics>,
 }
 
 impl ThreadPool {
@@ -39,20 +41,28 @@ impl ThreadPool {
         let mut workers = Vec::with_capacity(num_threads);
         let (sender, receiver) = channel::<Box<dyn Job + Send + Sync>>();
         let receiver = Arc::new(Mutex::new(receiver));
+        let (stats_tx, stats_rx) = channel::<Statistics>();
         for id in 0..num_threads {
             println!("spawning worker: {}", id);
-            workers.push(Worker::new(id, Arc::clone(&receiver)));
+            workers.push(Worker::new(id, Arc::clone(&receiver), stats_tx.clone()));
         }
         ThreadPool {
             workers_pool: workers,
             sender: Some(sender),
+            stats_recvr: stats_rx,
         }
     }
 
     pub fn start(&self, j: Box<dyn Job + Send + Sync>) {
         for _ in 0..self.workers_pool.len() {
-            let new_joba = j.clone_job();
-            self.sender.as_ref().unwrap().send(new_joba).unwrap();
+            let new_job = j.clone_job();
+            self.sender.as_ref().unwrap().send(new_job).unwrap();
+        }
+        let mut total_stats: Vec<Statistics> = vec![];
+        for _ in 0..self.workers_pool.len() {
+            let recvd_stats = self.stats_recvr.recv().unwrap();
+            println!("{recvd_stats:?}");
+            total_stats.push(recvd_stats);
         }
     }
 }

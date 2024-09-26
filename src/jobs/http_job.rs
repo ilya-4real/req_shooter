@@ -1,7 +1,9 @@
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::sync::mpsc::Sender;
 use std::time::{Duration, Instant};
 
+use crate::statistics::stats::Statistics;
 use crate::url_parser::ParsedUrl;
 use std::collections::VecDeque;
 
@@ -20,7 +22,7 @@ impl CloneJob for HTTPJob {
 }
 
 impl Job for HTTPJob {
-    fn execute(&self) {
+    fn execute(&self, stats_sender: Sender<Statistics>) {
         println!(
             "shooting on : host -> {}, port -> {}",
             self.parsed_url.host, self.parsed_url.port
@@ -34,6 +36,7 @@ impl Job for HTTPJob {
             .checked_add(Duration::from_secs(self.job_duration_sec as u64))
             .unwrap();
         let mut _total_requests: i64 = 0;
+        let mut local_statistics = Statistics::new();
         while Instant::now() <= time_off_end {
             let request_result = make_http_request(&self.parsed_url.resource, &mut conn_q);
             match request_result {
@@ -41,6 +44,9 @@ impl Job for HTTPJob {
                 false => fill_conn_q(&self.parsed_url, &mut conn_q, 1),
             }
         }
+        local_statistics.set_request_count(_total_requests as usize);
+        local_statistics.set_duration(start_time.elapsed().as_secs() as usize);
+        let _ = stats_sender.send(local_statistics).unwrap();
         println!("requests made {}", _total_requests);
         println!("job completed in: {}s", start_time.elapsed().as_secs());
     }
@@ -65,7 +71,6 @@ pub fn make_http_request(resource: &str, conn_q: &mut VecDeque<TcpStream>) -> bo
                 .expect("unable to read message from tcp stream");
             conn_q.push_back(conn);
             let _response = String::from_utf8_lossy(&buffer[0..bytes_read]);
-            println!("{_response:?}");
             return true;
         }
         Err(_err) => return false,
