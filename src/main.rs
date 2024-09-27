@@ -1,11 +1,10 @@
 mod cli_args;
 mod jobs;
+mod statistics;
 mod threadpool;
 mod url_parser;
 pub mod utils;
-use std::time::Instant;
-mod statistics;
-use clap::{command, Arg, ArgMatches};
+
 use cli_args::get_parsed_args;
 use jobs::http_job::HTTPJob;
 use threadpool::ThreadPool;
