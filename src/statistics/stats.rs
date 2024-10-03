@@ -3,6 +3,7 @@ pub struct Statistics {
     run_duration: usize,
     request_count: usize,
     error_count: usize,
+    bad_requests: usize,
     rps: Option<usize>,
 }
 
@@ -12,6 +13,7 @@ impl Statistics {
             run_duration: 0,
             request_count: 0,
             error_count: 0,
+            bad_requests: 0,
             rps: None,
         };
     }
@@ -25,6 +27,10 @@ impl Statistics {
     }
     pub fn set_error_count(&mut self, error_count: usize) {
         self.error_count = error_count
+    }
+
+    pub fn set_bad_requests(&mut self, bad_requests: usize) {
+        self.bad_requests = bad_requests;
     }
 
     pub fn calculate(&mut self) {

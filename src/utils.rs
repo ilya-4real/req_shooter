@@ -1,7 +1,9 @@
 use regex::Regex;
 
 pub fn parse_url(url: &str) -> Result<(String, u16, String), String> {
-    let re = Regex::new(r"(www\.|)([a-zA-Z0-9]+\.[a-z]+|localhost)(:\d+|)\/(.*)").unwrap();
+    let re =
+        Regex::new(r"(www\.|)([a-zA-Z0-9]+\.[a-z]+|localhost|\d+\.\d+\.\d+\.\d+)(:\d+|)\/(.*)")
+            .unwrap();
     let caps = re.captures(url);
     match caps {
         None => Err("Match not found".to_string()),
