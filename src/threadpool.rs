@@ -1,3 +1,4 @@
+use colored::Colorize;
 use std::{
     sync::{
         mpsc::{channel, Receiver, Sender},
@@ -6,18 +7,19 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use crate::{jobs::job::Job, statistics::stats::Statistics};
+use crate::{
+    jobs::job::Job,
+    statistics::stats::{SummaryStatistics, WorkerStats},
+};
 
 pub struct Worker {
-    id: u8,
     thread: Option<JoinHandle<()>>,
 }
 
 impl Worker {
     pub fn new(
-        id: u8,
         receiver: Arc<Mutex<Receiver<Box<dyn Job + Sync + Send>>>>,
-        stats_sender: Sender<Statistics>,
+        stats_sender: Sender<WorkerStats>,
     ) -> Worker {
         let thread: JoinHandle<()> = spawn(move || {
             let local_job: Box<dyn Job + Send + Sync> = receiver.lock().unwrap().recv().unwrap();
@@ -25,7 +27,6 @@ impl Worker {
             local_job.execute(stats_sender);
         });
         Worker {
-            id,
             thread: Some(thread),
         }
     }
@@ -33,7 +34,7 @@ impl Worker {
 pub struct ThreadPool {
     workers_pool: Vec<Worker>,
     sender: Option<Sender<Box<dyn Job + Send + Sync>>>,
-    stats_recvr: Receiver<Statistics>,
+    stats_recvr: Receiver<WorkerStats>,
 }
 
 impl ThreadPool {
@@ -41,10 +42,13 @@ impl ThreadPool {
         let mut workers = Vec::with_capacity(num_threads as usize);
         let (sender, receiver) = channel::<Box<dyn Job + Send + Sync>>();
         let receiver = Arc::new(Mutex::new(receiver));
-        let (stats_tx, stats_rx) = channel::<Statistics>();
-        for id in 0..num_threads {
-            println!("spawning worker: {}", id);
-            workers.push(Worker::new(id, Arc::clone(&receiver), stats_tx.clone()));
+        let (stats_tx, stats_rx) = channel::<WorkerStats>();
+        println!(
+            "{}",
+            format!("Spawning {} workers", num_threads).cyan().bold()
+        );
+        for _ in 0..num_threads {
+            workers.push(Worker::new(Arc::clone(&receiver), stats_tx.clone()));
         }
         ThreadPool {
             workers_pool: workers,
@@ -58,12 +62,12 @@ impl ThreadPool {
             let new_job = j.clone_job();
             self.sender.as_ref().unwrap().send(new_job).unwrap();
         }
-        let mut total_stats: Vec<Statistics> = vec![];
+        let mut workers_stats: Vec<WorkerStats> = vec![];
         for _ in 0..self.workers_pool.len() {
             let recvd_stats = self.stats_recvr.recv().unwrap();
-            println!("{recvd_stats:?}");
-            total_stats.push(recvd_stats);
+            workers_stats.push(recvd_stats);
         }
+        SummaryStatistics::new(workers_stats).represent();
     }
 }
 
@@ -73,7 +77,6 @@ impl Drop for ThreadPool {
             if let Some(thread) = worker.thread.take() {
                 thread.join().unwrap();
             }
-            println!("shutting down worker: {}", worker.id);
         }
     }
 }
