@@ -37,11 +37,11 @@ Is a modern and high performance HTTP benchmarking tool written in rust 😉.
 
  2. launch
  ~~~sh
-    req_shooter -d 10 -c 50 -t 2 127.0.0.1:8000/
+req_shooter -d 10 -c 50 -t 2 127.0.0.1:8000/
  ~~~
  3. Command line options
- ~~~sh
-    Usage: req_shooter [OPTIONS] -d <duration> <url>
+ ~~~
+Usage: req_shooter [OPTIONS] -d <duration> <url>
 
 Arguments:
   <url>  
