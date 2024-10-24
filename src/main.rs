@@ -13,7 +13,7 @@ use threadpool::ThreadPool;
 use url_parser::ParsedUrl;
 
 fn run_pool(url: &str, duration: usize, threads: u8, connections: usize) {
-    let parsed_url = ParsedUrl::new(url).expect("can not parse url");
+    let parsed_url = ParsedUrl::parse_url(url).expect("can not parse url");
     let job2 = MioHTTPJob {
         parsed_url: parsed_url.clone(),
         job_duration_sec: duration,
