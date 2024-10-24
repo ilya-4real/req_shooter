@@ -42,19 +42,35 @@ impl WorkerStats {
 }
 
 pub struct SummaryStatistics {
-    worker_stats: Vec<WorkerStats>,
+    workers_stats: Vec<WorkerStats>,
     rps: u32,
+    non_200_300_requests: u32,
+    total_errors: u32,
+    mean_latencies: f64,
+    total_data_received: usize,
 }
 
 impl SummaryStatistics {
     pub fn new(workers_stats: Vec<WorkerStats>) -> SummaryStatistics {
         let mut total_requests = 0;
+        let mut total_errors = 0;
+        let mut non_200_300_requests = 0;
+        let mut mean_latencies = 0.0;
+        let mut total_data_received = 0;
         let job_duration = workers_stats[0].run_duration;
         for worker in &workers_stats {
-            total_requests += worker.request_count
+            total_requests += worker.request_count;
+            total_errors += worker.error_count;
+            non_200_300_requests += worker.bad_requests;
+            mean_latencies += worker.mean_latency;
+            total_data_received += worker.received_data;
         }
         return SummaryStatistics {
-            worker_stats: workers_stats,
+            non_200_300_requests,
+            total_data_received,
+            total_errors,
+            workers_stats,
+            mean_latencies,
             rps: total_requests / job_duration as u32,
         };
     }
@@ -68,11 +84,7 @@ impl SummaryStatistics {
                 .underline()
         );
         print!("{header}");
-        let mut non_200_300_requests = 0;
-        let mut total_errors = 0;
-        let mut mean_latencies = 0.0;
-        let mut total_received_data = 0;
-        for (index, worker_stat) in self.worker_stats.iter().enumerate() {
+        for (index, worker_stat) in self.workers_stats.iter().enumerate() {
             println!(
                 "\tworker {}\t {:.2}ms\t\t\t {:.2}ms\t\t\t {}\t\t\t {}\t\t {}",
                 index,
@@ -82,12 +94,8 @@ impl SummaryStatistics {
                 worker_stat.error_count,
                 utils::format_received_data_value(worker_stat.received_data)
             );
-            non_200_300_requests += worker_stat.bad_requests;
-            total_errors += worker_stat.error_count;
-            total_received_data += worker_stat.received_data;
-            mean_latencies += worker_stat.mean_latency;
         }
-        let total_mean_latency = mean_latencies / self.worker_stats.len() as f64;
+        let total_mean_latency = self.mean_latencies / self.workers_stats.len() as f64;
         println!();
         println!("{}", "Summary:".cyan().bold().underline());
         println!(
@@ -97,18 +105,18 @@ impl SummaryStatistics {
         );
         println!(
             "\tTotal data received:\t\t {}",
-            utils::format_received_data_value(total_received_data)
+            utils::format_received_data_value(self.total_data_received)
         );
         println!("\tMean latency:\t\t\t {:.2}ms", total_mean_latency / 1000.0);
         println!(
             "{}{}",
             "\tNot 2** or 3** server responses: ",
-            format!("{}", non_200_300_requests)
+            format!("{}", self.non_200_300_requests)
         );
         println!(
             "{}{}",
             "\tConnection errors happened:\t ",
-            format!("{}", total_errors)
+            format!("{}", self.total_errors)
         );
     }
 }
