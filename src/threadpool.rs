@@ -45,7 +45,7 @@ impl ThreadPool {
         let (stats_tx, stats_rx) = channel::<WorkerStats>();
         println!(
             "{}",
-            format!("Spawning {} workers", num_threads).cyan().bold()
+            format!("Spawning workers: {}", num_threads).cyan().bold()
         );
         for _ in 0..num_threads {
             workers.push(Worker::new(Arc::clone(&receiver), stats_tx.clone()));

@@ -8,4 +8,5 @@ clap = { version = "4.5.18", features = ["cargo"] }
 colored = "2.1.0"
 mio = { version = "1.0.2", features = ["os-poll", "net"] }
 regex = "1.10.6"
+slab = "0.4.9"
 

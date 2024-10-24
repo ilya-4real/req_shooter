@@ -1,4 +1,5 @@
 mod cli_args;
+pub mod http_parser;
 mod jobs;
 mod statistics;
 mod threadpool;
@@ -6,7 +7,7 @@ mod url_parser;
 pub mod utils;
 
 use cli_args::get_parsed_args;
-use jobs::{http_job::HTTPJob, mio_job::MioHTTPJob};
+use jobs::mio_job::MioHTTPJob;
 use threadpool::ThreadPool;
 
 use url_parser::ParsedUrl;

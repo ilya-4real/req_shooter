@@ -1,9 +1,9 @@
 # Request shooter 🔫
-Is a modern and high performance HTTP benchmarking tool written in rust 😉.
+Is a high performance HTTP benchmarking tool written in rust 🦀.
 
 ### Key features
-- Used relatively low level library (mio) to make requests as fast as possible
-- Multithreaded
+- event driven request sending and response reading, which makes it incredibly fast
+- Multithreaded if you want
 - Accurate result calculations
 - Readable and colorful benchmark statistics in terminal
 
