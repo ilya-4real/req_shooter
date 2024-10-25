@@ -1,4 +1,4 @@
-use std::{collections::HashMap, io::Write};
+use std::collections::HashMap;
 
 #[derive(PartialEq, Debug)]
 pub enum ParserState {

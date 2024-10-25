@@ -9,7 +9,7 @@ use slab::Slab;
 
 use super::job::{CloneJob, Job};
 use crate::http_parser::http_parser::{HTTParser, ParserState};
-use crate::{statistics::stats::WorkerStats, url_parser::ParsedUrl};
+use crate::{statistics::stats::WorkerStats, url_parser::ParsedUrlHeader};
 
 enum HTTPReadREsult {
     Complete(usize, char),
@@ -114,7 +114,7 @@ fn reregister_socket_in_slab(
 
 #[derive(Clone)]
 pub struct MioHTTPJob {
-    pub parsed_url: ParsedUrl,
+    pub parsed_url: ParsedUrlHeader,
     pub job_duration_sec: usize,
     pub conn_quantity: usize,
 }
@@ -127,16 +127,13 @@ impl CloneJob for MioHTTPJob {
 
 impl Job for MioHTTPJob {
     fn execute(
-        &self,
+        &mut self,
         stats_sender: std::sync::mpsc::Sender<crate::statistics::stats::WorkerStats>,
     ) {
         let mut poll = Poll::new().expect("unable to create poll");
         let mut events = Events::with_capacity(self.conn_quantity);
         let mut connections_slab: Slab<HTTPConnection> = Slab::new();
-        let request = format!(
-            "GET /{} HTTP/1.1\r\nHost: {}\r\n\r\n",
-            self.parsed_url.resource, self.parsed_url.host
-        );
+        let request = self.parsed_url.compile_request();
         let socket_address: SocketAddr =
             format!("{}:{}", self.parsed_url.host, self.parsed_url.port)
                 .parse()

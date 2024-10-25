@@ -1,5 +1,3 @@
-use regex::Regex;
-
 pub fn format_received_data_value(received_data_value: usize) -> String {
     if received_data_value > 1_000_000 {
         return format!("{:.2} MB", received_data_value as f32 / 1_000_000.0);

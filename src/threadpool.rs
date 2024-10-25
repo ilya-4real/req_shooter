@@ -22,7 +22,8 @@ impl Worker {
         stats_sender: Sender<WorkerStats>,
     ) -> Worker {
         let thread: JoinHandle<()> = spawn(move || {
-            let local_job: Box<dyn Job + Send + Sync> = receiver.lock().unwrap().recv().unwrap();
+            let mut local_job: Box<dyn Job + Send + Sync> =
+                receiver.lock().unwrap().recv().unwrap();
             drop(receiver);
             local_job.execute(stats_sender);
         });

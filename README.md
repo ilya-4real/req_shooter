@@ -39,7 +39,7 @@ Is a high performance HTTP benchmarking tool written in rust 🦀.
  ~~~sh
 req_shooter -d 10 -c 50 -t 2 127.0.0.1:8000/
  ~~~
- 3. Command line options
+ 3. Enjoy 
  ~~~
 Usage: req_shooter [OPTIONS] -d <duration> <url>
 
@@ -48,8 +48,12 @@ Arguments:
 
 Options:
   -t <threads>       how many threads to run [default: 1]
+  -H <header>        header to send with request
   -c <conns>         how many active connections to use in each thread [default: 100]
   -d <duration>      how long to test in seconds
   -h, --help         Print help
   -V, --version      Print version
  ~~~
+
+Example of output:
+![image](./static/output_example.png)
