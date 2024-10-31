@@ -1,6 +1,6 @@
 use std::{
     io::{ErrorKind, Read, Write},
-    net::SocketAddr,
+    net::{SocketAddr, ToSocketAddrs},
     time::Instant,
 };
 
@@ -134,10 +134,12 @@ impl Job for MioHTTPJob {
         let mut events = Events::with_capacity(self.conn_quantity);
         let mut connections_slab: Slab<HTTPConnection> = Slab::new();
         let request = self.parsed_url.compile_request();
-        let socket_address: SocketAddr =
-            format!("{}:{}", self.parsed_url.host, self.parsed_url.port)
-                .parse()
-                .expect("unable to parse socket address");
+        let socket_address = format!("{}:{}", self.parsed_url.host, self.parsed_url.port)
+            .to_socket_addrs()
+            .expect("can not resolve hostname")
+            .next()
+            .expect("there is no host with this name");
+        println!("{}", socket_address);
         fill_connection_slab(
             self.conn_quantity,
             socket_address,
