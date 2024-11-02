@@ -139,7 +139,6 @@ impl Job for MioHTTPJob {
             .expect("can not resolve hostname")
             .next()
             .expect("there is no host with this name");
-        println!("{}", socket_address);
         fill_connection_slab(
             self.conn_quantity,
             socket_address,
