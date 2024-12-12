@@ -83,7 +83,7 @@ mod test_parsing_url {
     fn test_parsing_empty_resource() {
         let raw_url = "127.0.0.1:8000";
         let parsed = ParsedUrlHeader::parse_url(&raw_url).unwrap();
-        assert_eq!(parsed.resource, "");
+        assert_eq!(parsed.resource, "/");
     }
 
     #[test]
