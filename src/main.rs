@@ -10,22 +10,34 @@ use cli_args::get_parsed_args;
 use jobs::mio_job::MioHTTPJob;
 use threadpool::ThreadPool;
 
-use url_parser::ParsedUrlHeader;
+use url_parser::ParsedUrlAndHeader;
 
 fn run_pool(url: &str, header: Option<String>, duration: usize, threads: u8, connections: usize) {
-    let mut parsed_url = ParsedUrlHeader::parse_url(url).expect("can not parse url");
+    let parsed_url = ParsedUrlAndHeader::parse_url(url);
+    let mut ready_url_and_header: ParsedUrlAndHeader;
+    match parsed_url {
+        Err(e) => {
+            println!("Url parsing error: {}", e);
+            return;
+        }
+        Ok(url) => {
+            ready_url_and_header = url;
+        }
+    };
     if header.is_some() {
-        parsed_url
+        ready_url_and_header
             .add_header(header.unwrap())
             .expect("invalid header provided");
     }
-    let job2 = MioHTTPJob {
-        parsed_url: parsed_url.clone(),
+    let job = MioHTTPJob {
+        parsed_url: ready_url_and_header.clone(),
         job_duration_sec: duration,
         conn_quantity: connections,
     };
     let th_pool: ThreadPool = ThreadPool::new(threads);
-    th_pool.start(Box::new(job2));
+    if let Err(_) = th_pool.start(Box::new(job)) {
+        println!("Got error while running the threadpool. This error caused by previous errors")
+    }
 }
 
 fn main() {
