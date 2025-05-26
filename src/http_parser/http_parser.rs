@@ -127,7 +127,7 @@ mod test_parser {
     use super::HTTParser;
 
     #[test]
-    fn test_parsing_response() {
+    fn test_parsing_response_with_multiple_headers() {
         let response =
             b"HTTP/1.1 200 OK\r\nContent-length: 11\r\nContent-type : plaintext\r\n\r\nHello world";
         let mut parser = HTTParser::new();
@@ -140,7 +140,7 @@ mod test_parser {
     }
 
     #[test]
-    fn test_parsing_resp2() {
+    fn test_parsing_responce_with_one_header() {
         let response = b"HTTP/1.1 200 OK\r\nContent-Length: 11\r\n\r\nHello world";
         let mut parser = HTTParser::new();
         let mut true_headers_map: HashMap<String, String> = HashMap::new();

@@ -126,7 +126,7 @@ mod test_statistics {
     use super::WorkerStats;
 
     #[test]
-    fn test_mean_calculation() {
+    fn test_mean_latency_calculation() {
         let mut worker_stats = WorkerStats::new(1, 3, 0, 0, 0);
         let latencies = vec![1.0, 2.0, 3.0];
         worker_stats.calculate_latencies(latencies);
@@ -134,7 +134,7 @@ mod test_statistics {
     }
 
     #[test]
-    fn test_stdev_calculation() {
+    fn test_stdev_latency_calculation() {
         let mut worker_stats = WorkerStats::new(1, 3, 0, 0, 0);
         let latencies = vec![1.0, 2.0, 3.0];
         worker_stats.calculate_latencies(latencies);

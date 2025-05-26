@@ -1,9 +1,10 @@
 use std::sync::mpsc::Sender;
 
 use crate::statistics::stats::WorkerStats;
+use anyhow::Result;
 
 pub trait Job: CloneJob {
-    fn execute(&mut self, stats_sender: Sender<WorkerStats>);
+    fn execute(&mut self, stats_sender: Sender<WorkerStats>) -> Result<()>;
 }
 
 pub trait CloneJob {

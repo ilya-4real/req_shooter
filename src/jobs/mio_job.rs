@@ -4,12 +4,14 @@ use std::{
     time::Instant,
 };
 
+use anyhow::anyhow;
+use anyhow::Context;
 use mio::{net::TcpStream, Events, Interest, Poll, Token};
 use slab::Slab;
 
 use super::job::{CloneJob, Job};
 use crate::http_parser::http_parser::{HTTParser, ParserState};
-use crate::{statistics::stats::WorkerStats, url_parser::ParsedUrlHeader};
+use crate::{statistics::stats::WorkerStats, url_parser::ParsedUrlAndHeader};
 
 enum HTTPReadREsult {
     Complete(usize, char),
@@ -25,14 +27,15 @@ struct HTTPConnection {
 }
 
 impl HTTPConnection {
-    fn new(tcp_address: std::net::SocketAddr) -> HTTPConnection {
-        let new_stream = TcpStream::connect(tcp_address)
-            .expect("unable to establish tcp connection. check if the server is available");
-        return HTTPConnection {
+    fn new(tcp_address: std::net::SocketAddr) -> anyhow::Result<HTTPConnection> {
+        let new_stream = TcpStream::connect(tcp_address).context(
+            "Unable to establish tcp connection. check if the server is available (ping)",
+        )?;
+        return Ok(HTTPConnection {
             tcp_stream: new_stream,
             parser: HTTParser::new(),
             request_sent_time: None,
-        };
+        });
     }
 
     fn read_available(&mut self) -> HTTPReadREsult {
@@ -73,19 +76,14 @@ impl HTTPConnection {
     }
 }
 
-fn create_connection(socket_addr: SocketAddr) -> HTTPConnection {
-    let connection = HTTPConnection::new(socket_addr);
-    connection
-}
-
 fn fill_connection_slab(
     size: usize,
     socket_addr: SocketAddr,
     pool: &mut Slab<HTTPConnection>,
     poll: &mut Poll,
-) {
+) -> anyhow::Result<()> {
     for _ in 0..size {
-        let new_connection = create_connection(socket_addr);
+        let new_connection = HTTPConnection::new(socket_addr)?;
         let token = pool.insert(new_connection);
         poll.registry()
             .register(
@@ -93,28 +91,30 @@ fn fill_connection_slab(
                 Token(token),
                 Interest::WRITABLE | Interest::READABLE,
             )
-            .expect("cannot not register socket");
+            .context("Cannot register socket in the poll registry")?;
     }
+    Ok(())
 }
 fn reregister_socket_in_slab(
     socket_addr: SocketAddr,
     token: Token,
     pool: &mut Slab<HTTPConnection>,
     poll: &mut Poll,
-) {
-    pool[token.0] = create_connection(socket_addr);
+) -> anyhow::Result<()> {
+    pool[token.0] = HTTPConnection::new(socket_addr)?;
     poll.registry()
         .register(
             &mut pool[token.0].tcp_stream,
             token,
             Interest::WRITABLE | Interest::READABLE,
         )
-        .expect("cannot register socket");
+        .context("Cannot register socket in the poll registry")?;
+    Ok(())
 }
 
 #[derive(Clone)]
 pub struct MioHTTPJob {
-    pub parsed_url: ParsedUrlHeader,
+    pub parsed_url: ParsedUrlAndHeader,
     pub job_duration_sec: usize,
     pub conn_quantity: usize,
 }
@@ -129,22 +129,22 @@ impl Job for MioHTTPJob {
     fn execute(
         &mut self,
         stats_sender: std::sync::mpsc::Sender<crate::statistics::stats::WorkerStats>,
-    ) {
-        let mut poll = Poll::new().expect("unable to create poll");
+    ) -> anyhow::Result<()> {
+        let mut poll = Poll::new().context("Unable to create new Poll object")?;
         let mut events = Events::with_capacity(self.conn_quantity);
         let mut connections_slab: Slab<HTTPConnection> = Slab::new();
         let request = self.parsed_url.compile_request();
         let socket_address = format!("{}:{}", self.parsed_url.host, self.parsed_url.port)
             .to_socket_addrs()
-            .expect("can not resolve hostname")
+            .context("Cannot resolve the hostname")?
             .next()
-            .expect("there is no host with this name");
+            .context("There is no host with this name")?;
         fill_connection_slab(
             self.conn_quantity,
             socket_address,
             &mut connections_slab,
             &mut poll,
-        );
+        )?;
         let mut request_count: u32 = 0;
         let mut received_data = 0;
         let mut bad_requests: u32 = 0;
@@ -156,13 +156,20 @@ impl Job for MioHTTPJob {
                 break;
             }
             poll.poll(&mut events, None)
-                .expect("can not execute poll operation");
+                .context("Unable to start polling the socket")?;
             for event in &events {
                 let token = event.token();
-                let connection = connections_slab.get_mut(token.0).unwrap();
+                let connection = connections_slab
+                    .get_mut(token.0)
+                    .ok_or_else(|| anyhow!("Cannot get connection slab"))?;
                 if event.is_readable() {
-                    latencies
-                        .push(connection.request_sent_time.unwrap().elapsed().as_micros() as f64);
+                    latencies.push(
+                        connection
+                            .request_sent_time
+                            .ok_or_else(|| anyhow!("Cannot establish connection to the service"))?
+                            .elapsed()
+                            .as_micros() as f64,
+                    );
                     match connection.read_available() {
                         HTTPReadREsult::Complete(response_size, status_first_char) => {
                             received_data += response_size;
@@ -186,7 +193,7 @@ impl Job for MioHTTPJob {
                         token,
                         &mut connections_slab,
                         &mut poll,
-                    );
+                    )?;
                 }
             }
         }
@@ -201,6 +208,9 @@ impl Job for MioHTTPJob {
             received_data,
         );
         worker_statistics.calculate_latencies(latencies);
-        stats_sender.send(worker_statistics).unwrap();
+        stats_sender
+            .send(worker_statistics)
+            .context("Cannot send statistics to the channel")?;
+        Ok(())
     }
 }
